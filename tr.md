@@ -144,52 +144,58 @@
 
 ```mermaid
 graph TD
+
+%% Client
 subgraph Client
-    WebApp[Web App (Next.js)]
+  WebApp[Web App (Next.js)]
 end
 
+%% Gateway
 subgraph Gateway
-    APIGateway[API Gateway]
+  APIGateway[API Gateway]
 end
 
+%% Services
 subgraph Services
-    UserService[User Service]
-    BookingService[Booking Service]
-    AdminService[Admin Service]
-    NotificationService[Notification Service]
+  UserService[User Service]
+  BookingService[Booking Service]
+  AdminService[Admin Service]
+  NotificationService[Notification Service]
 end
 
+%% Databases
 subgraph Databases
-    UserDB[(User DB)]
-    BookingDB[(Booking DB)]
+  UserDB[(User DB)]
+  BookingDB[(Booking DB)]
 end
 
+%% Queue
 subgraph Queue
-    MsgQ[(Mail/Events Queue)]
+  MsgQ[(Mail/Events Queue)]
 end
 
 %% Client -> Gateway
-WebApp-->|HTTPS|APIGateway
+WebApp -->|HTTPS| APIGateway
 
 %% Gateway -> Services
-APIGateway-->|HTTP|UserService
-APIGateway-->|HTTP|BookingService
-APIGateway-->|HTTP|AdminService
-APIGateway-->|HTTP|NotificationService
+APIGateway -->|HTTP| UserService
+APIGateway -->|HTTP| BookingService
+APIGateway -->|HTTP| AdminService
+APIGateway -->|HTTP| NotificationService
 
 %% Service -> DB
-UserService-->|SQL|UserDB
-BookingService-->|SQL|BookingDB
-AdminService-->|SQL|BookingDB
+UserService -->|SQL| UserDB
+BookingService -->|SQL| BookingDB
+AdminService -->|SQL| BookingDB
 
 %% Inter-service calls
-BookingService-->|HTTP|UserService
-AdminService-->|HTTP|BookingService
-BookingService-->|HTTP|NotificationService
-AdminService-->|HTTP|NotificationService
+BookingService -->|HTTP| UserService
+AdminService -->|HTTP| BookingService
+BookingService -->|HTTP| NotificationService
+AdminService -->|HTTP| NotificationService
 
 %% Notifications async
-NotificationService-->|Publish/Consume|MsgQ
+NotificationService -->|Publish/Consume| MsgQ
 ```
 
 ---
