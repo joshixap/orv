@@ -201,6 +201,191 @@ NotificationService-->|Publish/Consume|MailQ
 ```
 
 ---
+##ыыыыААААА
+
+## Технические сценарии
+
+### Сценарий: регистрация нового пользователя
+
+1. Клиент отправляет в API Gateway запрос POST /users/register с email, ФИО и паролем
+2. API Gateway перенаправляет запрос в User Service
+3. User Service валидирует email, проверяет уникальность
+4. User Service хеширует пароль и сохраняет пользователя в User DB
+5. User Service отправляет код подтверждения на email пользователя
+6. Пользователь вводит код подтверждения, система активирует аккаунт
+7. User Service генерирует JWT токен
+8. API Gateway возвращает токен клиенту
+
+```mermaid
+sequenceDiagram
+participant Client
+participant APIGateway
+participant UserService
+participant UserDB
+Client->>APIGateway: POST /users/register {email, name, password}
+APIGateway->>UserService: Регистрация пользователя
+UserService->>UserService: Валидация email/имя/пароль
+UserService->>UserDB: Проверка уникальности email
+UserDB-->>UserService: Email свободен
+UserService->>UserService: Хеширование пароля
+UserService->>UserDB: Сохранение пользователя
+UserDB-->>UserService: user_id
+UserService->>Client: Отправка кода подтверждения email
+Client->>APIGateway: POST /users/confirm {email, code}
+APIGateway->>UserService: Подтверждение регистрации
+UserService->>UserDB: Активация аккаунта
+UserService->>UserService: Генерация JWT
+UserService-->>APIGateway: Created + JWT
+APIGateway-->>Client: Успешная регистрация
+```
+
+---
+
+### Сценарий: создание брони рабочего места
+
+1. Клиент отправляет POST /bookings с JWT токеном, id места и слота
+2. API Gateway валидирует токен и перенаправляет запрос в Booking Service
+3. Booking Service проверяет наличие активной брони пользователя на этот слот
+4. Booking Service проверяет доступность слота (нет других броней)
+5. При успехе Booking Service сохраняет запись о бронировании в Booking DB
+6. Booking Service отправляет уведомление пользователю через Notification Service
+7. API Gateway возвращает подтверждение и booking_id клиенту
+
+```mermaid
+sequenceDiagram
+participant Client
+participant APIGateway
+participant BookingService
+participant BookingDB
+participant NotificationService
+Client->>APIGateway: POST /bookings {place_id, slot_id} (JWT)
+APIGateway->>BookingService: Создание брони
+BookingService->>BookingDB: Проверка активной брони пользователя
+BookingDB-->>BookingService: Нет брони
+BookingService->>BookingDB: Проверка доступности слота
+BookingDB-->>BookingService: Слот свободен
+BookingService->>BookingDB: INSERT INTO bookings
+BookingDB-->>BookingService: booking_id
+BookingService->>NotificationService: Отправка уведомления
+BookingService-->>APIGateway: Успех + booking_id
+APIGateway-->>Client: Бронь подтверждена
+```
+
+---
+
+### Сценарий: отмена бронирования
+
+1. Клиент отправляет POST /bookings/cancel с JWT токеном и booking_id
+2. API Gateway валидирует токен и перенаправляет запрос в Booking Service
+3. Booking Service проверяет права пользователя и статус брони
+4. Booking Service обновляет статус бронирования в базе данных
+5. Booking Service отправляет уведомление пользователю через Notification Service
+6. API Gateway возвращает подтверждение отмены
+
+```mermaid
+sequenceDiagram
+participant Client
+participant APIGateway
+participant BookingService
+participant BookingDB
+participant NotificationService
+Client->>APIGateway: POST /bookings/cancel {booking_id} (JWT)
+APIGateway->>BookingService: Запрос на отмену брони
+BookingService->>BookingDB: Проверка прав пользователя и статуса
+BookingDB-->>BookingService: OK
+BookingService->>BookingDB: UPDATE bookings SET status=cancelled
+BookingDB-->>BookingService: OK
+BookingService->>NotificationService: Уведомление пользователя
+BookingService-->>APIGateway: Успешная отмена
+APIGateway-->>Client: Бронь отменена
+```
+
+---
+
+### Сценарий: просмотр истории бронирований
+
+1. Клиент отправляет GET /bookings/history с JWT токеном и фильтрами
+2. API Gateway валидирует токен и перенаправляет запрос в Booking Service
+3. Booking Service формирует SQL-запрос с фильтрами (дата, зона, статус)
+4. Booking Service получает список из Booking DB
+5. API Gateway возвращает список броней клиенту
+
+```mermaid
+sequenceDiagram
+participant Client
+participant APIGateway
+participant BookingService
+participant BookingDB
+Client->>APIGateway: GET /bookings/history?status=active&from=2025-10-01
+APIGateway->>BookingService: Получение истории броней
+BookingService->>BookingDB: SELECT * FROM bookings WHERE ...
+BookingDB-->>BookingService: Список броней
+BookingService-->>APIGateway: Список броней
+APIGateway-->>Client: Возврат истории
+```
+
+---
+
+### Сценарий: продление бронирования
+
+1. Клиент отправляет POST /bookings/{id}/extend с JWT токеном
+2. API Gateway валидирует токен и перенаправляет запрос в Booking Service
+3. Booking Service проверяет права пользователя и доступность следующего слота
+4. При успехе создаёт новую бронь на следующий слот
+5. Booking Service отправляет уведомление пользователю через Notification Service
+6. API Gateway возвращает подтверждение клиенту
+
+```mermaid
+sequenceDiagram
+participant Client
+participant APIGateway
+participant BookingService
+participant BookingDB
+participant NotificationService
+Client->>APIGateway: POST /bookings/{id}/extend (JWT)
+APIGateway->>BookingService: Продление брони
+BookingService->>BookingDB: Проверка текущей и следующего слота
+BookingDB-->>BookingService: Следующий слот свободен
+BookingService->>BookingDB: INSERT INTO bookings (новый слот)
+BookingDB-->>BookingService: booking_id
+BookingService->>NotificationService: Уведомление пользователя
+BookingService-->>APIGateway: Успех + booking_id
+APIGateway-->>Client: Бронь продлена
+```
+
+---
+
+### Сценарий: закрытие зоны на обслуживание (admin)
+
+1. Админ отправляет POST /admin/zones/{id}/close с JWT токеном и причинами
+2. API Gateway валидирует токен и перенаправляет запрос в Admin Service
+3. Admin Service определяет будущие брони в зоне через Booking Service/DB
+4. Admin Service отменяет все будущие брони и уведомляет пользователей через Notification Service
+5. API Gateway возвращает подтверждение администратору
+
+```mermaid
+sequenceDiagram
+participant Admin
+participant APIGateway
+participant AdminService
+participant BookingService
+participant BookingDB
+participant NotificationService
+Admin->>APIGateway: POST /admin/zones/{id}/close (JWT, причины)
+APIGateway->>AdminService: Закрытие зоны
+AdminService->>BookingService: Получить будущие брони зоны
+BookingService->>BookingDB: SELECT bookings WHERE zone_id={id} AND start_time>NOW()
+BookingDB-->>BookingService: Список броней
+BookingService-->>AdminService: Список броней
+AdminService->>BookingService: Отмена будущих броней
+BookingService->>BookingDB: UPDATE bookings SET status=cancelled
+BookingDB-->>BookingService: OK
+AdminService->>NotificationService: Массовое уведомление пользователей
+AdminService-->>APIGateway: Зона закрыта, брони отменены
+APIGateway-->>Admin: Подтверждение
+```
+
+
 
 ### Диаграмма компонентов (Mermaid)
 
