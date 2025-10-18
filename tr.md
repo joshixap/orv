@@ -142,60 +142,62 @@
 - **DB**: отдельные БД для пользователей и бронирований (например, PostgreSQL, распределённый режим через репликацию).
 - **Message Broker** (опционально): передача событий между сервисами (например, RabbitMQ/Kafka/Redis Streams).
 
+## Архитектура системы
+
+1. **API Gateway** — единая точка входа, маршрутизация клиентских запросов к сервисам, базовая аутентификация.
+2. **User Service** — регистрация, аутентификация, управление пользователями и профилями, выдача JWT; собственная база данных.
+3. **Booking Service** — обработка логики бронирования, отмены, продления, история, управление зонами и рабочими местами; собственная база данных.
+4. **Admin Service** — администрирование зон и рабочих мест, закрытие зон на обслуживание, массовые уведомления.
+5. **Notification Service** — отправка email, push и внутренних уведомлений; асинхронная обработка через очередь сообщений.
+6. **User DB** — база данных для User Service (пользователи, учётные данные).
+7. **Booking DB** — база данных для Booking Service/Admin Service (зоны, места, слоты, бронирования, история).
+8. **Mail/Events Queue** — очередь сообщений для отправки уведомлений и фоновых задач.
+9. **Frontend (Next.js/React)** — клиентское приложение, взаимодействует с API Gateway по HTTPS.
+
 ```mermaid
 graph TD
 
-%% Client
 subgraph Client
-  WebApp[Web App (Next.js)]
+    WebApp[Frontend (Next.js)]
 end
 
-%% Gateway
 subgraph Gateway
-  APIGateway[API Gateway]
+    APIGateway[API Gateway]
 end
 
-%% Services
 subgraph Services
-  UserService[User Service]
-  BookingService[Booking Service]
-  AdminService[Admin Service]
-  NotificationService[Notification Service]
+    UserService[User Service]
+    BookingService[Booking Service]
+    AdminService[Admin Service]
+    NotificationService[Notification Service]
 end
 
-%% Databases
 subgraph Databases
-  UserDB[(User DB)]
-  BookingDB[(Booking DB)]
+    UserDB[(User DB)]
+    BookingDB[(Booking DB)]
 end
 
-%% Queue
 subgraph Queue
-  MsgQ[(Mail/Events Queue)]
+    MailQ[(Mail/Events Queue)]
 end
 
-%% Client -> Gateway
-WebApp -->|HTTPS| APIGateway
+WebApp-->|HTTPS|APIGateway
 
-%% Gateway -> Services
-APIGateway -->|HTTP| UserService
-APIGateway -->|HTTP| BookingService
-APIGateway -->|HTTP| AdminService
-APIGateway -->|HTTP| NotificationService
+APIGateway-->|HTTP|UserService
+APIGateway-->|HTTP|BookingService
+APIGateway-->|HTTP|AdminService
+APIGateway-->|HTTP|NotificationService
 
-%% Service -> DB
-UserService -->|SQL| UserDB
-BookingService -->|SQL| BookingDB
-AdminService -->|SQL| BookingDB
+UserService-->|SQL|UserDB
+BookingService-->|SQL|BookingDB
+AdminService-->|SQL|BookingDB
 
-%% Inter-service calls
-BookingService -->|HTTP| UserService
-AdminService -->|HTTP| BookingService
-BookingService -->|HTTP| NotificationService
-AdminService -->|HTTP| NotificationService
+BookingService-->|HTTP|UserService
+AdminService-->|HTTP|BookingService
+BookingService-->|HTTP|NotificationService
+AdminService-->|HTTP|NotificationService
 
-%% Notifications async
-NotificationService -->|Publish/Consume| MsgQ
+NotificationService-->|Publish/Consume|MailQ
 ```
 
 ---
