@@ -217,26 +217,22 @@ NotificationService-->|Publish/Consume|MailQ
 8. API Gateway возвращает токен клиенту
 
 ```mermaid
-sequenceDiagram
-participant Client
-participant APIGateway
-participant UserService
-participant UserDB
-Client->>APIGateway: POST /users/register {email, name, password}
-APIGateway->>UserService: Регистрация пользователя
-UserService->>UserService: Валидация email/имя/пароль
-UserService->>UserDB: Проверка уникальности email
-UserDB-->>UserService: Email свободен
-UserService->>UserService: Хеширование пароля
-UserService->>UserDB: Сохранение пользователя
-UserDB-->>UserService: user_id
-UserService->>Client: Отправка кода подтверждения email
-Client->>APIGateway: POST /users/confirm {email, code}
-APIGateway->>UserService: Подтверждение регистрации
-UserService->>UserDB: Активация аккаунта
-UserService->>UserService: Генерация JWT
-UserService-->>APIGateway: Created + JWT
-APIGateway-->>Client: Успешная регистрация
+graph TD
+    Client-->|POST /users/register {email, name, password}|APIGateway
+    APIGateway-->|Регистрация пользователя|UserService
+    UserService-->|Валидация email, имени, пароля|UserService
+    UserService-->|Проверка уникальности email|UserDB
+    UserDB-->|Email свободен|UserService
+    UserService-->|Хеширование пароля|UserService
+    UserService-->|Сохранение пользователя|UserDB
+    UserDB-->|user_id|UserService
+    UserService-->|Отправка кода подтверждения|Client
+    Client-->|POST /users/confirm {email, code}|APIGateway
+    APIGateway-->|Подтверждение регистрации|UserService
+    UserService-->|Активация аккаунта|UserDB
+    UserService-->|Генерация JWT|UserService
+    UserService-->|Created + JWT|APIGateway
+    APIGateway-->|Успешная регистрация|Client
 ```
 
 ---
