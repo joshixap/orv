@@ -158,7 +158,7 @@
 graph TD
 
 subgraph Client
-    WebApp[Frontend (Next.js)]
+    WebApp[Frontend]
 end
 
 subgraph Gateway
